@@ -2,9 +2,6 @@ from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from azure.ai.textanalytics import TextAnalyticsClient
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.textanalytics import DetectLanguageInput, TextDocumentInput
 from bs4 import BeautifulSoup
 import json
 import requests
@@ -22,12 +19,6 @@ config.read('config.ini')
 line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
 handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
 
-# Azure Translator 相關資訊
-TRANSLATOR_KEY = '881753c6a88446e18e713bf9819e33bd'
-TRANSLATOR_ENDPOINT = 'https://api.cognitive.microsofttranslator.com/translate'
-translator_credentials = AzureKeyCredential(TRANSLATOR_KEY)
-translator_client = TextAnalyticsClient(endpoint=TRANSLATOR_ENDPOINT, credential=translator_credentials)
-
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -40,36 +31,27 @@ def callback():
         abort(400)
 
     return 'OK'
-
-
-def translate_text(text, target_language='en'):
-    headers = {
-        'Ocp-Apim-Subscription-Key': TRANSLATOR_KEY,
-        'Content-type': 'application/json',
-        'Ocp-Apim-Subscription-Region': 'eastus2'  # 如果需要的話，請填入你的 Azure 區域
-    }
-    body = [{
-        'text': text
-    }]
-    url = f'{TRANSLATOR_ENDPOINT}?api-version=3.0&to={target_language}'
-    response = requests.post(url, headers=headers, json=body)
-    translation = response.json()[0]['translations'][0]['text']
-    return translation
-
-# LINE Bot 的訊息處理器
-# @handler.add(MessageEvent, message=TextMessage)
-# def handle_message(event):
-#     # 獲取使用者發送的訊息
-#     user_message = event.message.text
     
-#     # 將使用者訊息翻譯成英文
-#     translated_message = translate_text(user_message)
-    
-#     # 將翻譯後的訊息回傳給使用者
-#     line_bot_api.reply_message(
-#         event.reply_token,
-#         TextSendMessage(text=translated_message)
-#     )
+#一個message event給使用者輸入 country ,brand, storename 去呼叫slot_data_top10 且回傳slot_data_top10結果
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    user_message = event.message.text
+    #如果符合xxxx, xxxx ,xxxx才執行
+    pattern = r'^[^,]+,[^,]+,[^,]+$'
+    if  re.match(pattern, user_message):
+
+        country, brand, storename = user_message.split(',')
+        slot_data_top10(country, brand, storename)
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=slot_data_top10(country, brand, storename))
+        )
+    else: 
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text='No data available! the format is <country,brand,storename>. Example:東京都,アミューズ,浅草店 . or visit https://ana-slo.com/')
+        )
+
 
 def get_slot_data(date , brand , storename):
     response = requests.get(f'https://ana-slo.com/{date}-{brand}{storename}-data/')
@@ -131,28 +113,6 @@ def slot_data_top10(country, brand, storename):
         print(e)
         return 'No data available, please visit https://ana-slo.com/ for correct format.'
         
-
-
-#一個message event給使用者輸入 country ,brand, storename 去呼叫slot_data_top10 且回傳slot_data_top10結果
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    user_message = event.message.text
-    #如果符合xxxx, xxxx ,xxxx才執行
-    pattern = r'^[^,]+,[^,]+,[^,]+$'
-    if  re.match(pattern, user_message):
-
-        country, brand, storename = user_message.split(',')
-        slot_data_top10(country, brand, storename)
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=slot_data_top10(country, brand, storename))
-        )
-    else: 
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text='No data available! the format is <country,brand,storename>. Example:東京都,アミューズ,浅草店 . or visit https://ana-slo.com/')
-        )
-# 主程式入口
 if __name__ == '__main__':
     app.debug = True
     app.run()
