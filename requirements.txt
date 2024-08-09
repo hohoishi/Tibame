@@ -1,0 +1,6 @@
+requests
+Flask
+bs4
+configparser
+pandas
+line-bot-sdk
