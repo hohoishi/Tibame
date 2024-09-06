@@ -93,7 +93,7 @@ def slot_data_top10(country, brand, storename):
                 df_all = df
             else:
                 df_all = pd.concat([df_all, df], axis=0)
-        except exception as e:
+        except Exception as e:
             print(e)
             print(f'{d} is not available')
     #------------------------------------------------
