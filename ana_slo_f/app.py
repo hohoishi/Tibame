@@ -8,6 +8,8 @@ import requests
 import configparser
 import pandas as pd 
 import re
+import threading
+import ana_slo
 
 app = Flask(__name__)
 
@@ -19,7 +21,7 @@ config.read('config.ini')
 line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
 handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
 
-@app.route("/callback", methods=['POST'])
+@app.route("/callback", methods=['POST', 'GET'])
 def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
@@ -36,69 +38,35 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
-    #如果符合xxxx, xxxx ,xxxx才執行
-    pattern = r'^[^,]+,[^,]+,[^,]+$'
+    #如果符合xxxx,xxxx才執行
+    pattern = r'^[^,]+,[^,]+$'
     if  re.match(pattern, user_message):
+        country,store = user_message.split(',')
 
-        country, brand, storename = user_message.split(',')
-        slot_data_top10(country, brand, storename)
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text=slot_data_top10(country, brand, storename))
+            TextSendMessage(text=slot_data_top10(country,  store))
         )
     else: 
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text='No data available! the format is <country,brand,storename>. Example:東京都,アミューズ,浅草店 . or visit https://ana-slo.com/')
+            TextSendMessage(text='No data available! the format is <country,store>. Example:東京都,アミューズ浅草店 . or visit https://ana-slo.com/')
         )
 
+def slot_data_top10(country, store):
+    try:
+    
+        a = ana_slo.ana_slo(country, store)
 
-def get_slot_data(date , brand , storename):
-    response = requests.get(f'https://ana-slo.com/{date}-{brand}{storename}-data/')
-    soup = BeautifulSoup(response.text, 'html.parser')
+        if a :
+            data_list = a.get_slot_data_14()
+            df_all = pd.pd.DataFrame(data_list, columns=a.columns_slot)
 
-    div = soup.find_all('div', id='all_data_block')
-    tr = div[0].find_all('tr')
-    columns_slot = tr[0].text.strip().split('\n')
-
-    data_list = []
-    for td in tr[1:len(tr)]:
-        data = td.text.strip().split('\n')
-        if len(data)==9:
-            data_list.append(data)
-
-    df = pd.DataFrame(data_list, columns=columns_slot)
-    #新增日期欄位為date轉為日期格式
-    df['date'] = pd.to_datetime(date)
-    return df
-
-
-def slot_data_top10(country, brand, storename):
-    response = requests.get(f'https://ana-slo.com/ホールデータ/{country}/{brand}{storename}-データ一覧/')
-    soup = BeautifulSoup(response.text, 'html.parser')
-    table = soup.find('div' , id= 'table')
-
-    #找到所有有 a 的日期
-    a = table.find_all('a')
-    a_list = []
-    for date in a:
-        a_list.append(date.text.strip()[:10].replace('/', '-'))
-
-    for d in a_list[:14]:
-        try :
-
-            df = get_slot_data(date =d , brand=brand , storename=storename)
-            #每個df concat起來
-            if d == a_list[0]:
-                df_all = df
-            else:
-                df_all = pd.concat([df_all, df], axis=0)
-        except Exception as e:
-            print(e)
-            print(f'{d} is not available')
+        else:
+            return 'No data available, please visit https://ana-slo.com/ for correct format.'
     #------------------------------------------------
     #用差枚總數排行
-    try:
+    
         df_all['差枚'] = df_all['差枚'].str.replace(',', '').str.replace('+', '').astype(int)
         top10_coins = df_all.groupby('台番号')['差枚'].sum().sort_values(ascending=False).head(10)
         df_all['win'] = df_all['差枚'].apply(lambda x: 1 if x > 0 else 0)
@@ -109,7 +77,7 @@ def slot_data_top10(country, brand, storename):
         df_final_coins = pd.merge(top10_coins, top10_coins_win_rate, on='台番号', how='left')
         
         return df_final_coins.to_string()
-    except exception as e:
+    except Exception as e:
         print(e)
         return 'No data available, please visit https://ana-slo.com/ for correct format.'
         
