@@ -9,7 +9,7 @@ import configparser
 import pandas as pd 
 import re
 import threading
-import ana_slo
+from ana_slo import ana_slo 
 
 app = Flask(__name__)
 
@@ -56,7 +56,7 @@ def handle_message(event):
 def slot_data_top10(country, store):
     try:
     
-        a = ana_slo.ana_slo(country, store)
+        a = ana_slo(country, store)
 
         if a :
             data_list = a.get_slot_data_14()

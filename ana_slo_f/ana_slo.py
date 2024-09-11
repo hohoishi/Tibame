@@ -22,10 +22,13 @@ class ana_slo:
         response = requests.get(f'https://ana-slo.com/{self.a_list[0]}-{store}-data/')
         soup = BeautifulSoup(response.text, 'html.parser')
         div = soup.find_all('div', id='all_data_block')
-        tr = div[0].find_all('tr')
-        columns_slot = tr[0].text.strip().split('\n')
-        columns_slot.append('DATE')
-        self.columns_slot = columns_slot
+        if div:
+            tr = div[0].find_all('tr')
+            columns_slot = tr[0].text.strip().split('\n')
+            columns_slot.append('DATE')
+            self.columns_slot = columns_slot
+        else: 
+            print('Fail to get slot data')
         #['機種名', '台番号', 'G数', '差枚', 'BB', 'RB', '合成確率', 'BB確率', 'RB確率','DATE']
 
     def get_slot_data_14(self):  
