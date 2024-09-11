@@ -62,21 +62,23 @@ def slot_data_top10(country, store):
             data_list = a.get_slot_data_14()
             df_all = pd.pd.DataFrame(data_list, columns=a.columns_slot)
 
-        else:
-            return 'No data available, please visit https://ana-slo.com/ for correct format.'
+
     #------------------------------------------------
-    #用差枚總數排行
-    
-        df_all['差枚'] = df_all['差枚'].str.replace(',', '').str.replace('+', '').astype(int)
-        top10_coins = df_all.groupby('台番号')['差枚'].sum().sort_values(ascending=False).head(10)
-        df_all['win'] = df_all['差枚'].apply(lambda x: 1 if x > 0 else 0)
-        #top10.index 篩選df_all['台號'] == top10.index
-        df_top10_coins = df_all[df_all['台番号'].isin(top10_coins.index)]
-        #計算top10的WIN RATE
-        top10_coins_win_rate = df_top10_coins.groupby('台番号')['win'].mean().sort_values(ascending=False).head(10)
-        df_final_coins = pd.merge(top10_coins, top10_coins_win_rate, on='台番号', how='left')
+            #用差枚總數排行
+            df_all['差枚'] = df_all['差枚'].str.replace(',', '').str.replace('+', '').astype(int)
+            top10_coins = df_all.groupby('台番号')['差枚'].sum().sort_values(ascending=False).head(10)
+            df_all['win'] = df_all['差枚'].apply(lambda x: 1 if x > 0 else 0)
+            #top10.index 篩選df_all['台號'] == top10.index
+            df_top10_coins = df_all[df_all['台番号'].isin(top10_coins.index)]
+            #計算top10的WIN RATE
+            top10_coins_win_rate = df_top10_coins.groupby('台番号')['win'].mean().sort_values(ascending=False).head(10)
+            df_final_coins = pd.merge(top10_coins, top10_coins_win_rate, on='台番号', how='left')
         
-        return df_final_coins.to_string()
+            return df_final_coins.to_string()
+        else:
+
+            return 'No data available, please visit https://ana-slo.com/ for correct format.'
+    
     except Exception as e:
         print(e)
         return 'No data available, please visit https://ana-slo.com/ for correct format.'
