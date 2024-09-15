@@ -1,0 +1,9 @@
+configparser
+openai
+langchain
+langchain-openai
+langchain-community
+faiss-cpu
+tiktoken
+langchain-google-genai
+pillow
